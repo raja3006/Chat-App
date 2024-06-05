@@ -1,6 +1,7 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const cors = require('cors');
 
 const app = express();
 
@@ -13,27 +14,30 @@ const Conversations = require('./models/Conversations');
 const Messages = require('./models/Messages');
 
 // app use
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended:false}));
 
-const port = process.env.port || 8000; 
+const port = 8000; 
 
 // Routes 
 app.get('/' , (req , res) => {
     res.send('Welcome');
 })
 
-app.post('/api/register' , async (req , res , next) => { //getting data from db can take time that's why we use promises here async/await
+
+// Purpose: Registers a new user.
+app.post('/api/register' , async (req , res , next ) => { //getting data from db can take time that's why we use promises here async/await
     try {
         const { fullName , email , password } = req.body;
 
         if(!fullName || !email || !password){
-            res.status(400).send('Please fill the required fields');
+            return res.status(400).send('Please fill the required fields');
         }
         else{
             const isAlreadyExist = await Users.findOne({ email });
             if(isAlreadyExist){
-                res.status(400).send('User already exist')
+                return res.status(400).send('User already exist')
             }else{
                 const newUser = new Users({ fullName , email });
                 bcryptjs.hash( password , 10 , (err , hashedPassword) => { // hashed upto only 10 character because below this password will not be secure and above this it the process of hashing and salting can be slow
@@ -50,7 +54,8 @@ app.post('/api/register' , async (req , res , next) => { //getting data from db 
     }
 })
 
-app.post('/api/login' , async(req , res , next) => {
+// Purpose: Logs in a user.
+app.post('/api/login' , async(req , res) => {
     try {
         const { email , password } = req.body;
 
@@ -59,7 +64,7 @@ app.post('/api/login' , async(req , res , next) => {
         }else{
             const user = await Users.findOne({ email });
             if(!user){
-                res.status(400).send('User email or password is incorrect');
+                return res.status(400).send('User email or password is incorrect');
             }else{
                 const validateUser = await bcryptjs.compare(password , user.password);
                 if(!validateUser){
@@ -77,7 +82,7 @@ app.post('/api/login' , async(req , res , next) => {
                         user.save();
                         next()
                     })
-                    res.status(200).json({ user: {email: user.email , fullName: user.fullName } , token: user.token })
+                    return res.status(200).json({ user: {email: user.email , fullName: user.fullName } , token: user.token })
                 }
             }
 
@@ -88,6 +93,7 @@ app.post('/api/login' , async(req , res , next) => {
     }
 })
 
+// Purpose: Creates a new conversation between two users.
 app.post('/api/conversation' , async(req , res , next) => {
     try {
         const { senderId , receiverId } = req.body; 
@@ -99,6 +105,7 @@ app.post('/api/conversation' , async(req , res , next) => {
     }
 })
 
+//  Purpose: Retrieves conversations for a specific user.
 app.get('/api/conversation/:userId' , async (req , res) => {
     try {
         const userId = req.params.userId;
@@ -114,6 +121,7 @@ app.get('/api/conversation/:userId' , async (req , res) => {
     }
 })
 
+// Purpose: Sends a message in a conversation.
 app.post('/api/message' , async ( req , res ) => {
     try {
         const { conversationId , senderId , message , receiverId='' } = req.body;
@@ -135,6 +143,7 @@ app.post('/api/message' , async ( req , res ) => {
     }
 })
 
+// Purpose: Retrieves messages for a specific conversation.
 app.get('/api/message/:conversationId' , async ( req , res ) => {
     try {
         const conversationId = req.params.conversationId;
@@ -150,6 +159,7 @@ app.get('/api/message/:conversationId' , async ( req , res ) => {
     }
 })
 
+// Purpose: Retrieves all users.
 app.get('/api/users', async( req , res ) => {
     try {
         const users = await Users.find();
